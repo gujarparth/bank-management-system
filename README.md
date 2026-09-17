@@ -48,7 +48,9 @@ bank-management-system/
 
 - JDK 17 or later
 - MySQL Server 8.0 or later
-- MySQL Connector/J (included in `lib/`)
+- MySQL Connector/J (included in `lib/`) — you can also download it directly from
+  [dev.mysql.com/downloads/connector/j](https://dev.mysql.com/downloads/connector/j/)
+  (select "Platform Independent" to get the `.zip`/`.tar.gz` containing the `.jar`)
 
 ---
 
@@ -164,7 +166,3 @@ update silently overwrites the other.
 ## Author
 
 Parth Gujar
-
-## License
-
-Created for academic submission.
