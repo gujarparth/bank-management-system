@@ -1,62 +1,38 @@
 # Project Report: Bank Management System
+**Author:** Parth Gujar
 
----
+## 1. Project Overview
+For this project, I built a console-based Bank Management System using Java and MySQL. My main goal was to move beyond basic Java programming and actually integrate a database using JDBC, while also experimenting with multithreading. The application runs in the command line and allows users to open accounts, deposit and withdraw funds, calculate interest, and check loan eligibility. 
 
-## 1. Abstract
+## 2. Technology Stack & Setup
+I kept the toolset fairly standard to focus on the core concepts:
+*   **Language:** Java (JDK 17+)
+*   **Database:** MySQL Server 8.0+
+*   **Driver:** MySQL Connector/J (JDBC)
+*   **Build Process:** I chose not to use a build tool like Maven or Gradle. Instead, I compiled everything manually using `javac` to better understand how classpaths and external `.jar` libraries work.
 
-This project implements a console-based Bank Management System in Java, demonstrating core object-oriented programming principles, JDBC-based persistence to a MySQL database, and safe concurrent transaction handling using Java's built-in threading and synchronization primitives. The system supports account creation, deposits, withdrawals, interest calculation, and loan eligibility checks, while a dedicated concurrency demo shows multiple threads safely operating on a single account without corrupting its balance.
+## 3. Architecture and Code Structure
+To keep the codebase organized and prevent `Main.java` from becoming a massive file, I separated the code into different layers:
 
-## 2. System Architecture
+*   **User Interface (`Main.java`):** Handles the console menu, taking user inputs (like deposit amounts or account types), and printing results. 
+*   **Business Logic (`Bank.java` & `ValidationUtils.java`):** This is where the actual banking rules live. For example, `withdraw()` checks if there are sufficient funds, and `calculateInterest()` applies different math depending on whether the account is "savings" or "current".
+*   **Database Layer (`DBConnection.java` & `DBOperations.java`):** I isolated all SQL queries here. I used `PreparedStatement` for things like `INSERT` and `UPDATE` to prevent SQL injection and handle the data safely.
+*   **Data Model (`Account.java`):** A simple object holding the account ID, name, type, and balance.
 
-The system follows a layered architecture separating presentation, business logic, persistence, and domain/concurrency concerns:
+## 4. The Concurrency Demonstration
+One of the requirements was to handle concurrent transactions (multiple threads trying to change a balance at the same time). 
 
-1. **Presentation Layer (`Main.java`):** A menu-driven console interface that accepts user input and routes it to the appropriate business operation.
-2. **Business Logic Layer (`Bank.java`, `ValidationUtils.java`):** Encapsulates account operations — opening accounts, deposits, withdrawals, interest calculation, and loan eligibility — along with input and business-rule validation. Balance-mutating methods are `synchronized` to guard against race conditions.
-3. **Persistence Layer (`DBConnection.java`, `DBOperations.java`):** Manages the JDBC connection lifecycle and executes all SQL through `PreparedStatement`, keeping SQL fully isolated from business logic.
-4. **Domain / Threading Layer (`Account.java`, `TransactionThread.java`):** `Account` is the encapsulated data model; `TransactionThread` implements `Runnable` and wraps a single deposit or withdrawal so it can be executed concurrently on its own thread.
+To test this, I created `TransactionThread.java`, which implements `Runnable`. Menu Option 7 launches three threads simultaneously against a single account (two deposits and one withdrawal). To prevent a "lost update" race condition—where two threads read the same balance and overwrite each other—I used a `synchronized` block. 
 
-## 3. Technology Stack
+**How I built the lock:** Inside `TransactionThread.java`, I created a `private static final Object lock = new Object();` and synchronized the run method on it. This successfully forces the threads to wait in line, ensuring the final math is always 100% accurate. 
 
-- **Programming Language:** Java (JDK 17+)
-- **Database:** MySQL Server 8.0+
-- **Database Connectivity:** JDBC via MySQL Connector/J
-- **Concurrency:** `Thread`, `Runnable`, `synchronized`
-- **Build/Run:** Manual compilation via `javac` / `java` (no build tool dependency)
+## 5. Challenges Faced During Development
+*   **Git Tracking Issues:** Early on, I accidentally committed my compiled `.class` files in the `out/` folder to GitHub. Even after I added `out/` to my `.gitignore` file, Git kept tracking them. I eventually figured out I had to use `git rm -r --cached out/` to clear Git's memory of the folder without deleting my local files.
+*   **Cross-Platform Classpaths:** Getting the app to compile with the external JDBC `.jar` file was tricky. I learned the hard way that Windows uses a semicolon (`;`) to separate classpaths, while macOS/Linux uses a colon (`:`). I documented both commands in the README so it runs smoothly on any machine.
 
-## 4. Implementation Challenges & Solutions
+## 6. Known Limitations & Future Improvements
+While the program works reliably, there are a few things I would improve in a version 2.0:
 
-| Technical Challenge | Root Cause | Engineering Solution |
-|---|---|---|
-| **Race condition on concurrent balance updates** | Multiple threads reading and writing an account's balance at the same time could cause a lost-update, where one thread's change silently overwrites another's. | Marked balance-mutating methods in `Bank` as `synchronized` on a shared lock, ensuring only one thread can modify a given account's balance at a time. |
-| **`out/` build artifacts committed to Git** | The compiled `.class` output folder was pushed to GitHub before `.gitignore` was created, so Git continued tracking it even after the ignore rule was added. | Removed the folder from Git's index with `git rm -r --cached out/` while keeping it locally, then re-committed so future builds are excluded automatically. |
-| **`.gitignore` rule silently not matching** | The `.gitignore` file had been saved in UTF-16 encoding (via the editor) instead of UTF-8, which caused inconsistent pattern matching against tracked files on Windows. | Re-saved `.gitignore` as UTF-8 and reapplied `git rm -r --cached out/`, after which Git correctly recognized and ignored the folder. |
-| **Stale compiled output during testing** | Java ran outdated bytecode because the source file had unsaved changes in the editor (indicated by an unsaved-changes marker on the file tab) before compilation. | Verified the file was saved (no unsaved-changes indicator) before every `javac` compilation to guarantee the latest code was actually being tested. |
-| **Classpath separator differences across OS** | The classpath separator for `java`/`javac` differs between Windows (`;`) and Linux/macOS (`:`), causing run commands to fail if copied across platforms. | Documented both variants explicitly in the README's Build and Run section. |
-
-## 5. Key Features
-
-- **Full account lifecycle:** open accounts, view details, deposit, and withdraw, each validated against invalid amounts and insufficient funds.
-- **Interest calculation:** rate applied according to account type (savings vs. current).
-- **Loan eligibility check:** determined from account balance and type.
-- **Concurrent transaction demo:** launches multiple threads against the same account simultaneously to demonstrate safe, synchronized balance updates.
-- **Persistent storage:** all account data is stored in and retrieved from a MySQL database via JDBC, rather than kept only in memory.
-- **Defensive exception handling:** invalid account IDs, malformed amounts, and insufficient balances are caught and reported to the user instead of crashing the program.
-
-## 6. Results and Discussion
-
-The concurrency demo was tested by running multiple deposit and withdrawal threads against the same account simultaneously. Across repeated runs, the final balance consistently matched the expected mathematical result regardless of thread execution order, confirming that the `synchronized` guard correctly serializes access to the balance field and prevents lost updates. Standard operations — account creation, deposits, withdrawals, interest calculation, and loan eligibility — were also verified against manually calculated expected values (e.g., interest correctly computed as principal × rate) and matched in every test.
-
-## 7. Future Developments
-
-- **Show the race condition explicitly:** add an unsynchronized code path alongside the synchronized one to visually demonstrate the bug the `synchronized` keyword prevents.
-- **Connection pooling:** replace the single JDBC connection with a pool (e.g., HikariCP) for better performance under higher concurrent load.
-- **Transaction history:** log each deposit/withdrawal to a separate table for auditability, rather than only reflecting the current balance.
-- **Build tool migration:** move from manual `javac`/`java` compilation to Maven or Gradle to simplify dependency management (e.g., the MySQL connector) and cross-platform builds.
-
-## 8. Conclusion
-
-This project demonstrates the practical application of object-oriented design, JDBC-based persistence, and safe multithreading in a realistic banking domain. By separating concerns across presentation, business logic, persistence, and domain/threading layers, and by using `synchronized` methods to guard shared mutable state, the system reliably handles both single-threaded and concurrent operations without data corruption.
-
-## 9. Author
-
-- **Parth Gujar**
+1.  **Refining the Thread Lock:** Currently, my `synchronized` lock in `TransactionThread.java` is a static global lock. This means it pauses *all* transactions in the entire bank while one thread finishes. In a real-world scenario, I would need to lock only the specific Account ID being modified (perhaps using a `ConcurrentHashMap` of locks) so other users aren't delayed.
+2.  **Securing Credentials:** Right now, my database password (`Parth@123`) is hardcoded directly inside `DBConnection.java`. I did this for local testing, but I realize this is a bad security practice for GitHub. In the future, I will pull this from an environment variable.
+3.  **Detailed Transaction Logs:** While I implemented a basic transaction log, the main system relies on just updating the `balance` column in the `accounts` table. Building out a full ledger interface would be the next logical step.
